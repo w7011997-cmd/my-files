@@ -28,7 +28,6 @@ jobs:
           cp index.html www/
           cp -r css www/
           cp -r js www/
-          cp -r assets www/
 
       - name: Install dependencies
         run: |
@@ -46,11 +45,6 @@ jobs:
           if [ ! -d android ]; then
             npx cap add android
           fi
-
-      - name: Generate launcher icon from resources/icon.png
-        run: |
-          npm install @capacitor/assets --save-dev
-          npx capacitor-assets generate --android
 
       - name: Patch Gradle to fix Kotlin duplicate classes
         run: |

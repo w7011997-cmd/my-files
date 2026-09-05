@@ -20,15 +20,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
-
-      - name: Stage web files into www/
-        run: |
-          mkdir -p www
-          cp index.html www/
-          cp -r css www/
-          cp -r js www/
-          cp -r assets www/
+          java-version: 17
 
       - name: Install dependencies
         run: |
@@ -38,7 +30,7 @@ jobs:
       - name: Init Capacitor (if not already committed)
         run: |
           if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
-            npx cap init "My Files" "com.yourname.myfiles" --web-dir=www
+            npx cap init "My Files" "com.yourname.myfiles" --web-dir=.
           fi
 
       - name: Add Android platform (if not already committed)
@@ -46,21 +38,6 @@ jobs:
           if [ ! -d android ]; then
             npx cap add android
           fi
-
-      - name: Generate launcher icon from resources/icon.png
-        run: |
-          npm install @capacitor/assets --save-dev
-          npx capacitor-assets generate --android
-
-      - name: Patch Gradle to fix Kotlin duplicate classes
-        run: |
-          cat >> android/app/build.gradle << 'PATCH'
-
-          configurations.all {
-              exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
-              exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
-          }
-          PATCH
 
       - name: Sync web assets into Android project
         run: npx cap sync android
