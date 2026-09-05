@@ -22,6 +22,13 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Stage web files into www/
+        run: |
+          mkdir -p www
+          cp index.html www/
+          cp -r css www/
+          cp -r js www/
+
       - name: Install dependencies
         run: |
           npm init -y
@@ -30,7 +37,7 @@ jobs:
       - name: Init Capacitor (if not already committed)
         run: |
           if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
-            npx cap init "My Files" "com.yourname.myfiles" --web-dir=.
+            npx cap init "My Files" "com.yourname.myfiles" --web-dir=www
           fi
 
       - name: Add Android platform (if not already committed)
