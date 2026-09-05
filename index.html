@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>My Files</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div id="app">
+
+    <!-- Folder list screen -->
+    <header class="topbar" id="folderTopbar">
+      <button class="icon-btn" id="menuBtn" aria-label="Menu">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <div class="search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="text" id="searchInput" placeholder="Search all folders" />
+      </div>
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 01-4 0v-.09A1.7 1.7 0 008.5 19.4a1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.7 1.7 0 004.14 15a1.7 1.7 0 00-1.55-1H2.5a2 2 0 010-4h.09A1.7 1.7 0 004.6 8.5a1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06A1.7 1.7 0 008.5 4.14a1.7 1.7 0 001-1.55V2.5a2 2 0 014 0v.09a1.7 1.7 0 001 1.55 1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06A1.7 1.7 0 0019.4 8.5a1.7 1.7 0 001.55 1h.05a2 2 0 010 4h-.09a1.7 1.7 0 00-1.51 1z"/></svg>
+      </button>
+    </header>
+
+    <!-- Folder detail screen -->
+    <header class="topbar hidden" id="detailTopbar">
+      <button class="icon-btn" id="backBtn" aria-label="Back">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="detail-title" id="detailTitle">Folder</div>
+      <button class="icon-btn" id="detailMenuBtn" aria-label="Folder options">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+      </button>
+    </header>
+
+    <main id="folderScreen">
+      <div class="grid" id="folderGrid"></div>
+      <div class="empty-state hidden" id="folderEmpty">
+        <p>No folders yet</p>
+        <p class="sub">Tap the button below to create your first folder</p>
+      </div>
+    </main>
+
+    <main id="detailScreen" class="hidden">
+      <div class="grid" id="fileGrid"></div>
+      <div class="empty-state hidden" id="fileEmpty">
+        <p>This folder is empty</p>
+        <p class="sub">Tap the button below to upload a file</p>
+      </div>
+      <div class="upload-progress hidden" id="uploadProgress">
+        <div class="bar"><div class="fill" id="uploadFill"></div></div>
+        <span id="uploadLabel">Uploading…</span>
+      </div>
+    </main>
+
+    <button class="fab" id="fabBtn" aria-label="Add">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+
+    <input type="file" id="fileInput" hidden multiple />
+  </div>
+
+  <!-- New folder modal -->
+  <div class="modal hidden" id="folderModal">
+    <div class="modal-card">
+      <h3>New folder</h3>
+      <input type="text" id="folderNameInput" placeholder="Folder name" maxlength="40" />
+      <div class="modal-actions">
+        <button class="btn ghost" id="folderCancelBtn">Cancel</button>
+        <button class="btn primary" id="folderCreateBtn">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal hidden" id="settingsModal">
+    <div class="modal-card">
+      <h3>Cloudinary settings</h3>
+      <label>Cloud name</label>
+      <input type="text" id="cloudNameInput" placeholder="e.g. dxyz1234" />
+      <label>Upload preset</label>
+      <input type="text" id="uploadPresetInput" placeholder="e.g. my_files_unsigned" />
+      <div class="modal-actions">
+        <button class="btn ghost" id="settingsCancelBtn">Cancel</button>
+        <button class="btn primary" id="settingsSaveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- File preview modal -->
+  <div class="modal hidden" id="previewModal">
+    <div class="modal-card preview-card">
+      <div class="preview-body" id="previewBody"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="previewDeleteBtn">Remove</button>
+        <button class="btn primary" id="previewCloseBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/cloudinary.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
