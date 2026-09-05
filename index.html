@@ -10,32 +10,55 @@
 
   <div id="app">
 
-    <header class="topbar">
+    <!-- Normal top bar -->
+    <header class="topbar" id="normalTopbar">
       <button class="icon-btn hidden" id="backBtn" aria-label="Back">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button class="icon-btn hidden" id="hamburgerBtn" aria-label="Menu">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
 
       <div class="search hidden" id="searchWrap">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <input type="text" id="searchInput" placeholder="Search this folder" />
       </div>
-
       <div class="folder-title" id="folderTitle">My Files</div>
 
       <button class="icon-btn" id="searchBtn" aria-label="Search">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       </button>
-
       <button class="icon-btn" id="layoutBtn" aria-label="Change layout">
         <svg viewBox="0 0 24 24" id="layoutIcon"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
       </button>
-
       <button class="icon-btn hidden" id="folderMenuBtn" aria-label="Folder options">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
       </button>
-
       <button class="icon-btn" id="settingsBtn" aria-label="Settings">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 01-4 0v-.09A1.7 1.7 0 008.5 19.4a1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.7 1.7 0 004.14 15a1.7 1.7 0 00-1.55-1H2.5a2 2 0 010-4h.09A1.7 1.7 0 004.6 8.5a1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06A1.7 1.7 0 008.5 4.14a1.7 1.7 0 001-1.55V2.5a2 2 0 014 0v.09a1.7 1.7 0 001 1.55 1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06A1.7 1.7 0 0019.4 8.5a1.7 1.7 0 001.55 1h.05a2 2 0 010 4h-.09a1.7 1.7 0 00-1.51 1z"/></svg>
+      </button>
+    </header>
+
+    <!-- Selection mode top bar -->
+    <header class="topbar selection-bar hidden" id="selectionTopbar">
+      <button class="icon-btn" id="selectionCancelBtn" aria-label="Cancel selection">
+        <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+      <div class="folder-title" id="selectionCount">1 selected</div>
+      <button class="icon-btn" id="selectionRenameBtn" aria-label="Rename">
+        <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
+      </button>
+      <button class="icon-btn" id="selectionLockBtn" aria-label="Lock/unlock">
+        <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+      </button>
+      <button class="icon-btn" id="selectionCopyBtn" aria-label="Copy">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>
+      </button>
+      <button class="icon-btn" id="selectionMoveBtn" aria-label="Move">
+        <svg viewBox="0 0 24 24"><path d="M3 7h5l2-2h6l2 2h3v11H3z"/></svg>
+      </button>
+      <button class="icon-btn danger" id="selectionDeleteBtn" aria-label="Delete">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a1 1 0 01-1 1H7a1 1 0 01-1-1V6"/></svg>
       </button>
     </header>
 
@@ -56,41 +79,42 @@
     </div>
 
     <input type="file" id="fileInput" hidden multiple />
+    <input type="file" id="backupImportInput" hidden accept="application/json" />
   </div>
 
-  <!-- Add action sheet: New folder / Upload file -->
+  <!-- Add sheet -->
   <div class="sheet hidden" id="addSheet">
     <div class="sheet-card">
-      <button class="sheet-item" id="addFolderAction">
-        <div class="sheet-icon folder-tint"></div>
-        <span>New folder</span>
-      </button>
-      <button class="sheet-item" id="addFileAction">
-        <div class="sheet-icon">
-          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-        </div>
-        <span>Upload file</span>
-      </button>
+      <button class="sheet-item" id="addFolderAction"><div class="sheet-icon folder-tint"></div><span>New folder</span></button>
+      <button class="sheet-item" id="addFileAction"><div class="sheet-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div><span>Upload file</span></button>
     </div>
   </div>
 
-  <!-- Folder options sheet: Rename / Delete -->
+  <!-- Folder options sheet -->
   <div class="sheet hidden" id="folderOptionsSheet">
     <div class="sheet-card">
-      <button class="sheet-item" id="renameFolderAction">
-        <span>Rename folder</span>
-      </button>
-      <button class="sheet-item danger" id="deleteFolderAction">
-        <span>Delete folder</span>
-      </button>
+      <button class="sheet-item" id="renameFolderAction"><span>Rename folder</span></button>
+      <button class="sheet-item" id="toggleLockFolderAction"><span>Lock folder</span></button>
+      <button class="sheet-item" id="moveFolderAction"><span>Move</span></button>
+      <button class="sheet-item" id="copyFolderAction"><span>Copy</span></button>
+      <button class="sheet-item danger" id="deleteFolderAction"><span>Delete folder</span></button>
     </div>
   </div>
 
-  <!-- New folder modal -->
+  <!-- Hamburger menu sheet -->
+  <div class="sheet hidden" id="hamburgerSheet">
+    <div class="sheet-card">
+      <button class="sheet-item" id="toggleAppLockAction"><span>Set lock</span></button>
+      <button class="sheet-item" id="lockAllFoldersAction"><span>Lock all folders</span></button>
+      <button class="sheet-item" id="unlockAllFoldersAction"><span>Unlock all folders</span></button>
+    </div>
+  </div>
+
+  <!-- Generic name modal (new folder / rename folder / rename file) -->
   <div class="modal hidden" id="folderModal">
     <div class="modal-card">
       <h3 id="folderModalTitle">New folder</h3>
-      <input type="text" id="folderNameInput" placeholder="Folder name" maxlength="60" />
+      <input type="text" id="folderNameInput" placeholder="Name" maxlength="60" />
       <div class="modal-actions">
         <button class="btn ghost" id="folderCancelBtn">Cancel</button>
         <button class="btn primary" id="folderCreateBtn">Save</button>
@@ -101,11 +125,23 @@
   <!-- Settings modal -->
   <div class="modal hidden" id="settingsModal">
     <div class="modal-card">
-      <h3>Cloudinary settings</h3>
+      <h3>Settings</h3>
+
+      <button class="btn danger-block" id="selfDestructBtn">⚠ Self Destruct — erase all local records</button>
+      <p class="hint">Files stay safe on Cloudinary. This only clears what this app remembers.</p>
+
+      <div class="stats-box" id="statsBox"></div>
+
       <label>Cloud name</label>
       <input type="text" id="cloudNameInput" placeholder="e.g. dxyz1234" />
       <label>Upload preset</label>
       <input type="text" id="uploadPresetInput" placeholder="e.g. my-files" />
+
+      <div class="settings-row">
+        <button class="btn ghost small" id="exportBackupBtn">Export backup</button>
+        <button class="btn ghost small" id="importBackupBtn">Import backup</button>
+      </div>
+
       <div class="modal-actions">
         <button class="btn ghost" id="settingsCancelBtn">Cancel</button>
         <button class="btn primary" id="settingsSaveBtn">Save</button>
@@ -113,25 +149,58 @@
     </div>
   </div>
 
+  <!-- PIN modal (set / verify) -->
+  <div class="modal hidden" id="pinModal">
+    <div class="modal-card">
+      <h3 id="pinModalTitle">Enter PIN</h3>
+      <input type="password" inputmode="numeric" id="pinInput" placeholder="PIN" maxlength="8" />
+      <input type="password" inputmode="numeric" id="pinConfirmInput" placeholder="Confirm PIN" maxlength="8" />
+      <p class="hint error hidden" id="pinError">PIN didn't match. Try again.</p>
+      <div class="modal-actions">
+        <button class="btn ghost" id="pinCancelBtn">Cancel</button>
+        <button class="btn primary" id="pinSubmitBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App lock screen (full block) -->
+  <div class="lockscreen hidden" id="lockScreen">
+    <div class="lockscreen-card">
+      <div class="folder-glyph big"></div>
+      <h3>My Files is locked</h3>
+      <input type="password" inputmode="numeric" id="lockScreenInput" placeholder="Enter PIN" maxlength="8" />
+      <p class="hint error hidden" id="lockScreenError">Incorrect PIN</p>
+      <button class="btn primary" id="lockScreenSubmit">Unlock</button>
+    </div>
+  </div>
+
+  <!-- Move / Copy destination picker -->
+  <div class="modal hidden" id="pickerModal">
+    <div class="modal-card picker-card">
+      <h3 id="pickerTitle">Move to…</h3>
+      <div class="picker-path" id="pickerPath">My Files</div>
+      <div class="picker-list" id="pickerList"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="pickerCancelBtn">Cancel</button>
+        <button class="btn primary" id="pickerConfirmBtn">Move here</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Full-screen swipeable preview -->
   <div class="preview hidden" id="previewOverlay">
     <div class="preview-topbar">
-      <button class="icon-btn light" id="previewCloseBtn">
-        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-      </button>
+      <button class="icon-btn light" id="previewCloseBtn"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
       <span class="preview-counter" id="previewCounter"></span>
-      <button class="icon-btn light" id="previewMoreBtn">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-      </button>
+      <button class="icon-btn light" id="previewMoreBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>
     </div>
     <div class="preview-track" id="previewTrack"></div>
   </div>
 
   <div class="sheet hidden" id="previewOptionsSheet">
     <div class="sheet-card">
-      <button class="sheet-item danger" id="previewRemoveAction">
-        <span>Remove from folder</span>
-      </button>
+      <button class="sheet-item" id="previewRenameAction"><span>Rename</span></button>
+      <button class="sheet-item danger" id="previewRemoveAction"><span>Remove from folder</span></button>
     </div>
   </div>
 
