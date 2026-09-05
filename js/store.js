@@ -1,94 +1,125 @@
 // store.js
-// Everything is kept in localStorage on-device. There is no server database —
-// Cloudinary holds the actual files, this just remembers what you uploaded
-// and which folder it belongs to.
+// Local on-device "database" (localStorage). No server. Cloudinary holds the
+// actual files; this remembers folder structure (nested, unlimited depth)
+// and which files live where, plus your layout preference per folder.
 
 const Store = (() => {
-  const DATA_KEY = "myfiles_data_v1";
+  const DATA_KEY = "myfiles_data_v2";
   const SETTINGS_KEY = "myfiles_settings_v1";
+  const LAYOUT_KEY = "myfiles_layouts_v1";
 
-  function _load() {
+  function _load(key, fallback) {
     try {
-      const raw = localStorage.getItem(DATA_KEY);
+      const raw = localStorage.getItem(key);
       if (raw) return JSON.parse(raw);
     } catch (e) {}
-    return { folders: [], files: [] };
+    return fallback;
   }
-
-  function _save(data) {
-    localStorage.setItem(DATA_KEY, JSON.stringify(data));
+  function _save(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
   }
-
   function _uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
-  let data = _load();
+  let data = _load(DATA_KEY, { folders: [], files: [] });
+  let layouts = _load(LAYOUT_KEY, {});
+
+  const ROOT = null;
 
   return {
-    getFolders() {
-      return [...data.folders].sort((a, b) => a.name.localeCompare(b.name));
+    ROOT,
+
+    // ---- Folders ----
+    getSubfolders(parentId) {
+      return data.folders
+        .filter((f) => f.parentId === parentId)
+        .sort((a, b) => a.name.localeCompare(b.name));
     },
 
     getFolder(id) {
       return data.folders.find((f) => f.id === id) || null;
     },
 
-    createFolder(name) {
-      const folder = { id: _uid(), name: name.trim(), createdAt: Date.now() };
+    createFolder(name, parentId) {
+      const folder = { id: _uid(), name: name.trim(), parentId, createdAt: Date.now() };
       data.folders.push(folder);
-      _save(data);
+      _save(DATA_KEY, data);
       return folder;
     },
 
-    deleteFolder(id) {
-      data.folders = data.folders.filter((f) => f.id !== id);
-      data.files = data.files.filter((f) => f.folderId !== id);
-      _save(data);
+    renameFolder(id, newName) {
+      const folder = this.getFolder(id);
+      if (folder) {
+        folder.name = newName.trim();
+        _save(DATA_KEY, data);
+      }
     },
 
+    deleteFolder(id) {
+      // Recursively collect this folder + all descendants
+      const toDelete = new Set([id]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        data.folders.forEach((f) => {
+          if (toDelete.has(f.parentId) && !toDelete.has(f.id)) {
+            toDelete.add(f.id);
+            changed = true;
+          }
+        });
+      }
+      data.folders = data.folders.filter((f) => !toDelete.has(f.id));
+      data.files = data.files.filter((f) => !toDelete.has(f.folderId));
+      _save(DATA_KEY, data);
+    },
+
+    // ---- Files ----
     getFiles(folderId) {
       return data.files
         .filter((f) => f.folderId === folderId)
-        .sort((a, b) => b.createdAt - a.createdAt);
+        .sort((a, b) => a.originalName.localeCompare(b.originalName));
     },
 
     getFile(id) {
       return data.files.find((f) => f.id === id) || null;
     },
 
-    countFiles(folderId) {
-      return data.files.filter((f) => f.folderId === folderId).length;
+    countItems(folderId) {
+      const subfolders = this.getSubfolders(folderId).length;
+      const files = data.files.filter((f) => f.folderId === folderId).length;
+      return { subfolders, files, total: subfolders + files };
     },
 
     addFile(folderId, meta) {
-      const file = {
-        id: _uid(),
-        folderId,
-        createdAt: Date.now(),
-        ...meta,
-      };
+      const file = { id: _uid(), folderId, createdAt: Date.now(), ...meta };
       data.files.push(file);
-      _save(data);
+      _save(DATA_KEY, data);
       return file;
     },
 
     removeFile(id) {
       data.files = data.files.filter((f) => f.id !== id);
-      _save(data);
+      _save(DATA_KEY, data);
     },
 
-    // Cloudinary account settings (cloud name + unsigned upload preset)
+    // ---- Layout preference per folder (or "root") ----
+    getLayout(folderId) {
+      const key = folderId === ROOT ? "root" : folderId;
+      return layouts[key] || "grid";
+    },
+    setLayout(folderId, layout) {
+      const key = folderId === ROOT ? "root" : folderId;
+      layouts[key] = layout;
+      _save(LAYOUT_KEY, layouts);
+    },
+
+    // ---- Cloudinary settings ----
     getSettings() {
-      try {
-        const raw = localStorage.getItem(SETTINGS_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch (e) {}
-      return { cloudName: "", uploadPreset: "" };
+      return _load(SETTINGS_KEY, { cloudName: "", uploadPreset: "" });
     },
-
     saveSettings(settings) {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      _save(SETTINGS_KEY, settings);
     },
   };
 })();
