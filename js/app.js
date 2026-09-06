@@ -2,7 +2,6 @@
 (() => {
   const el = (id) => document.getElementById(id);
 
-  // Topbars
   const normalTopbar = el("normalTopbar");
   const selectionTopbar = el("selectionTopbar");
   const backBtn = el("backBtn");
@@ -17,8 +16,10 @@
 
   const selectionCancelBtn = el("selectionCancelBtn");
   const selectionCount = el("selectionCount");
+  const selectionInfoBtn = el("selectionInfoBtn");
   const selectionRenameBtn = el("selectionRenameBtn");
   const selectionLockBtn = el("selectionLockBtn");
+  const selectionDownloadBtn = el("selectionDownloadBtn");
   const selectionCopyBtn = el("selectionCopyBtn");
   const selectionMoveBtn = el("selectionMoveBtn");
   const selectionDeleteBtn = el("selectionDeleteBtn");
@@ -36,10 +37,13 @@
   const addSheet = el("addSheet");
   const addFolderAction = el("addFolderAction");
   const addFileAction = el("addFileAction");
+  const addCodeFileAction = el("addCodeFileAction");
 
   const folderOptionsSheet = el("folderOptionsSheet");
+  const folderInfoAction = el("folderInfoAction");
   const renameFolderAction = el("renameFolderAction");
   const toggleLockFolderAction = el("toggleLockFolderAction");
+  const downloadFolderAction = el("downloadFolderAction");
   const moveFolderAction = el("moveFolderAction");
   const copyFolderAction = el("copyFolderAction");
   const deleteFolderAction = el("deleteFolderAction");
@@ -52,6 +56,7 @@
 
   const folderModal = el("folderModal");
   const folderModalTitle = el("folderModalTitle");
+  const folderModalHint = el("folderModalHint");
   const folderNameInput = el("folderNameInput");
   const folderCancelBtn = el("folderCancelBtn");
   const folderCreateBtn = el("folderCreateBtn");
@@ -86,33 +91,56 @@
   const pickerCancelBtn = el("pickerCancelBtn");
   const pickerConfirmBtn = el("pickerConfirmBtn");
 
+  const infoModal = el("infoModal");
+  const infoTitle = el("infoTitle");
+  const infoRows = el("infoRows");
+  const infoCloseBtn = el("infoCloseBtn");
+
   const previewOverlay = el("previewOverlay");
   const previewTrack = el("previewTrack");
   const previewCounter = el("previewCounter");
   const previewCloseBtn = el("previewCloseBtn");
+  const previewRunBtn = el("previewRunBtn");
   const previewMoreBtn = el("previewMoreBtn");
   const previewOptionsSheet = el("previewOptionsSheet");
+  const previewInfoAction = el("previewInfoAction");
+  const previewEditAction = el("previewEditAction");
+  const previewSaveAction = el("previewSaveAction");
+  const previewUndoAction = el("previewUndoAction");
+  const previewRedoAction = el("previewRedoAction");
+  const previewDownloadAction = el("previewDownloadAction");
   const previewRenameAction = el("previewRenameAction");
   const previewRemoveAction = el("previewRemoveAction");
 
+  const runOverlay = el("runOverlay");
+  const runFrame = el("runFrame");
+  const runCloseBtn = el("runCloseBtn");
+
   let navPath = [];
   let searchActive = false;
-  let folderModalMode = "create"; // create | rename-folder | rename-file
+  let folderModalMode = "create"; // create | rename-folder | rename-file | create-file
   let renameTargetId = null;
   let previewFiles = [];
   let previewIndex = 0;
 
-  // Selection state
   let selectionActive = false;
   let selectedFolders = new Set();
   let selectedFiles = new Set();
   const unlockedFoldersThisSession = new Set();
 
+  // Code editing state (one slide editable at a time)
+  let editingFile = null;
+  let editingTextarea = null;
+  let undoStack = [];
+  let redoStack = [];
+  let hasUnsavedEdits = false;
+  let lastUndoPushTime = 0;
+
   function currentFolderId() { return navPath.length ? navPath[navPath.length - 1] : Store.ROOT; }
   function escapeHtml(str) { const d = document.createElement("div"); d.textContent = str || ""; return d.innerHTML; }
   function isImage(m) { return m && m.startsWith("image/"); }
   function isVideo(m) { return m && m.startsWith("video/"); }
-  const CODE_EXTS = new Set(["html","htm","css","js","mjs","jsx","tsx","ts","json","php","xml","md","txt","yml","yaml","py","java","c","cpp","h","hpp","sh","sql","rb","go","rs","ini","conf","log","csv","svg"]);
+  const CODE_EXTS = new Set(["html","htm","css","js","mjs","jsx","tsx","ts","json","php","xml","md","txt","yml","yaml","py","java","c","cpp","h","hpp","sh","sql","rb","go","rs","ini","conf","log","csv","svg","dart"]);
   function getExt(name) { const parts = (name || "").split("."); return parts.length > 1 ? parts.pop().toLowerCase() : ""; }
   function isCodeFile(file) { return CODE_EXTS.has(getExt(file.originalName)); }
   function formatBytes(bytes) {
@@ -122,16 +150,19 @@
     while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
     return `${val.toFixed(val < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
   }
-  function formatDate(ts) { return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); }
+  function formatDateTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) + " · " +
+      d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
   function genericFileSVG() { return `<svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/></svg>`; }
 
-  // ---------- Sheets / modals helpers ----------
   function openSheet(s) { s.classList.remove("hidden"); }
   function closeSheet(s) { s.classList.add("hidden"); }
   [addSheet, folderOptionsSheet, hamburgerSheet, previewOptionsSheet].forEach((s) => {
     s.addEventListener("click", (e) => { if (e.target === s) closeSheet(s); });
   });
-  [folderModal, settingsModal, pinModal, pickerModal].forEach((m) => {
+  [folderModal, settingsModal, pinModal, pickerModal, infoModal].forEach((m) => {
     m.addEventListener("click", (e) => { if (e.target === m) m.classList.add("hidden"); });
   });
 
@@ -149,29 +180,20 @@
     if (selectedFolders.size === 0 && selectedFiles.size === 0) selectionActive = false;
     render();
   }
-  function exitSelection() {
-    selectionActive = false;
-    selectedFolders.clear();
-    selectedFiles.clear();
-    render();
-  }
+  function exitSelection() { selectionActive = false; selectedFolders.clear(); selectedFiles.clear(); render(); }
   selectionCancelBtn.addEventListener("click", exitSelection);
 
   function attachLongPress(elm, onLongPress, onTap) {
     let timer = null, fired = false, startX = 0, startY = 0;
     const clear = () => { clearTimeout(timer); timer = null; };
     elm.addEventListener("pointerdown", (e) => {
-      fired = false;
-      startX = e.clientX; startY = e.clientY;
+      fired = false; startX = e.clientX; startY = e.clientY;
       timer = setTimeout(() => { fired = true; onLongPress(); }, 480);
     });
     elm.addEventListener("pointermove", (e) => {
       if (timer && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) clear();
     });
-    elm.addEventListener("pointerup", () => {
-      clear();
-      if (!fired) onTap();
-    });
+    elm.addEventListener("pointerup", () => { clear(); if (!fired) onTap(); });
     elm.addEventListener("pointerleave", clear);
   }
 
@@ -183,9 +205,10 @@
       fabBtn.classList.add("hidden");
       const count = selectedFolders.size + selectedFiles.size;
       selectionCount.textContent = `${count} selected`;
+      selectionInfoBtn.classList.toggle("hidden", count !== 1);
       selectionRenameBtn.classList.toggle("hidden", count !== 1);
       const onlyFolders = selectedFiles.size === 0 && selectedFolders.size > 0;
-      selectionLockBtn.classList.toggle("hidden", !onlyFolders);
+      selectionLockBtn.classList.toggle("hidden", !onlyFolders || Store.getMode() === "decoy");
       return;
     }
     normalTopbar.classList.remove("hidden");
@@ -196,7 +219,8 @@
     const folder = folderId === Store.ROOT ? null : Store.getFolder(folderId);
 
     backBtn.classList.toggle("hidden", navPath.length === 0);
-    hamburgerBtn.classList.toggle("hidden", navPath.length !== 0);
+    const isDecoy = Store.getMode() === "decoy";
+    hamburgerBtn.classList.toggle("hidden", navPath.length !== 0 || isDecoy);
     folderMenuBtn.classList.toggle("hidden", folderId === Store.ROOT);
     settingsBtn.classList.toggle("hidden", folderId !== Store.ROOT);
 
@@ -226,6 +250,7 @@
   folderMenuBtn.addEventListener("click", () => {
     const f = Store.getFolder(currentFolderId());
     toggleLockFolderAction.textContent = f && f.locked ? "Unlock folder" : "Lock folder";
+    toggleLockFolderAction.classList.toggle("hidden", Store.getMode() === "decoy");
     openSheet(folderOptionsSheet);
   });
   hamburgerBtn.addEventListener("click", () => {
@@ -250,7 +275,6 @@
 
   // ---------- Rendering ----------
   function renderContent() {
-    if (selectionActive) { renderTopbar(); }
     const folderId = currentFolderId();
     const query = searchActive ? searchInput.value.trim().toLowerCase() : "";
     let subfolders = Store.getSubfolders(folderId);
@@ -281,7 +305,6 @@
   function renderIconGrid(subfolders, files) {
     const grid = document.createElement("div");
     grid.className = "icon-grid";
-
     subfolders.forEach((folder) => {
       const counts = Store.countItems(folder.id);
       const item = document.createElement("div");
@@ -292,13 +315,10 @@
         <div class="sub-label">${counts.total} item${counts.total === 1 ? "" : "s"}</div>
         ${selectedFolders.has(folder.id) ? '<div class="check-badge">✓</div>' : ""}
       `;
-      attachLongPress(item,
-        () => enterSelection("folder", folder.id),
-        () => { if (selectionActive) toggleSelect("folder", folder.id); else openFolder(folder.id); }
-      );
+      attachLongPress(item, () => enterSelection("folder", folder.id),
+        () => { if (selectionActive) toggleSelect("folder", folder.id); else openFolder(folder.id); });
       grid.appendChild(item);
     });
-
     files.forEach((file) => {
       const item = document.createElement("div");
       item.className = "icon-item" + (selectedFiles.has(file.id) ? " selected" : "");
@@ -306,13 +326,10 @@
         ? `<div class="thumb"><img src="${file.url}" loading="lazy" /></div>`
         : `<div class="thumb">${genericFileSVG()}</div>`;
       item.innerHTML = `${thumbHtml}<div class="label">${escapeHtml(file.originalName)}</div>${selectedFiles.has(file.id) ? '<div class="check-badge">✓</div>' : ""}`;
-      attachLongPress(item,
-        () => enterSelection("file", file.id),
-        () => { if (selectionActive) toggleSelect("file", file.id); else openPreview(files, files.indexOf(file)); }
-      );
+      attachLongPress(item, () => enterSelection("file", file.id),
+        () => { if (selectionActive) toggleSelect("file", file.id); else openPreview(files, files.indexOf(file)); });
       grid.appendChild(item);
     });
-
     content.appendChild(grid);
   }
 
@@ -320,24 +337,20 @@
     const wrap = document.createElement("div");
     wrap.className = "list-view";
     wrap.innerHTML = `<div class="list-header"><span>Name</span><span>Modified</span><span>Size</span></div>`;
-
     subfolders.forEach((folder) => {
       const counts = Store.countItems(folder.id);
       const row = document.createElement("div");
       row.className = "list-row" + (selectedFolders.has(folder.id) ? " selected" : "");
       row.innerHTML = `
         <div class="name-cell"><div class="mini-folder"></div><span class="name">${escapeHtml(folder.name)}</span>${folder.locked ? '<span class="lock-tag">🔒</span>' : ""}</div>
-        <span class="meta-cell">${formatDate(folder.createdAt)}</span>
+        <span class="meta-cell">${formatDateTime(folder.createdAt)}</span>
         <span class="meta-cell">${counts.total} item${counts.total === 1 ? "" : "s"}</span>
         ${selectedFolders.has(folder.id) ? '<div class="check-badge">✓</div>' : ""}
       `;
-      attachLongPress(row,
-        () => enterSelection("folder", folder.id),
-        () => { if (selectionActive) toggleSelect("folder", folder.id); else openFolder(folder.id); }
-      );
+      attachLongPress(row, () => enterSelection("folder", folder.id),
+        () => { if (selectionActive) toggleSelect("folder", folder.id); else openFolder(folder.id); });
       wrap.appendChild(row);
     });
-
     files.forEach((file) => {
       const row = document.createElement("div");
       row.className = "list-row" + (selectedFiles.has(file.id) ? " selected" : "");
@@ -346,17 +359,14 @@
         : `<div class="icon-wrap">${genericFileSVG()}</div>`;
       row.innerHTML = `
         <div class="name-cell">${iconHtml}<span class="name">${escapeHtml(file.originalName)}</span></div>
-        <span class="meta-cell">${formatDate(file.createdAt)}</span>
+        <span class="meta-cell">${formatDateTime(file.createdAt)}</span>
         <span class="meta-cell">${formatBytes(file.bytes)}</span>
         ${selectedFiles.has(file.id) ? '<div class="check-badge">✓</div>' : ""}
       `;
-      attachLongPress(row,
-        () => enterSelection("file", file.id),
-        () => { if (selectionActive) toggleSelect("file", file.id); else openPreview(files, files.indexOf(file)); }
-      );
+      attachLongPress(row, () => enterSelection("file", file.id),
+        () => { if (selectionActive) toggleSelect("file", file.id); else openPreview(files, files.indexOf(file)); });
       wrap.appendChild(row);
     });
-
     content.appendChild(wrap);
   }
 
@@ -368,21 +378,66 @@
     closeSheet(addSheet);
     folderModalMode = "create";
     folderModalTitle.textContent = "New folder";
+    folderModalHint.classList.add("hidden");
     folderNameInput.value = "";
     folderModal.classList.remove("hidden");
     setTimeout(() => folderNameInput.focus(), 50);
   });
   addFileAction.addEventListener("click", () => { closeSheet(addSheet); fileInput.click(); });
+  addCodeFileAction.addEventListener("click", () => {
+    closeSheet(addSheet);
+    folderModalMode = "create-file";
+    folderModalTitle.textContent = "New file";
+    folderModalHint.classList.remove("hidden");
+    folderNameInput.value = "";
+    folderModal.classList.remove("hidden");
+    setTimeout(() => folderNameInput.focus(), 50);
+  });
 
   folderCancelBtn.addEventListener("click", () => folderModal.classList.add("hidden"));
-  folderCreateBtn.addEventListener("click", () => {
+  folderCreateBtn.addEventListener("click", async () => {
     const name = folderNameInput.value.trim();
     if (!name) return;
-    if (folderModalMode === "create") Store.createFolder(name, currentFolderId());
-    else if (folderModalMode === "rename-folder") Store.renameFolder(renameTargetId, name);
-    else if (folderModalMode === "rename-file") Store.renameFile(renameTargetId, name);
-    folderModal.classList.add("hidden");
-    renderContent();
+    if (folderModalMode === "create") {
+      Store.createFolder(name, currentFolderId());
+      folderModal.classList.add("hidden");
+      renderContent();
+    } else if (folderModalMode === "rename-folder") {
+      Store.renameFolder(renameTargetId, name);
+      folderModal.classList.add("hidden");
+      renderContent();
+    } else if (folderModalMode === "rename-file") {
+      Store.renameFile(renameTargetId, name);
+      folderModal.classList.add("hidden");
+      renderContent();
+    } else if (folderModalMode === "create-file") {
+      const ext = getExt(name);
+      if (!CODE_EXTS.has(ext)) {
+        alert("Use a supported code/text extension, e.g. .html, .css, .js, .json, .md, .php, .dart");
+        return;
+      }
+      const settings = Store.getSettings();
+      if (!settings.cloudName || !settings.uploadPreset) {
+        alert("Add your Cloudinary cloud name and upload preset in Settings first.");
+        return;
+      }
+      folderModal.classList.add("hidden");
+      const boilerplate = ext === "html"
+        ? "<!DOCTYPE html>\n<html>\n<head>\n  <title></title>\n</head>\n<body>\n\n</body>\n</html>\n"
+        : "";
+      const blob = new File([boilerplate], name, { type: "text/plain" });
+      try {
+        const meta = await Cloudinary.upload(blob, settings, () => {});
+        const newFile = Store.addFile(currentFolderId(), meta);
+        renderContent();
+        const files = Store.getFiles(currentFolderId());
+        const idx = files.findIndex((f) => f.id === newFile.id);
+        openPreview(files, idx);
+        setTimeout(() => startEditingCurrentSlide(), 600);
+      } catch (err) {
+        alert("Couldn't create the file: " + err.message);
+      }
+    }
   });
   folderNameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") folderCreateBtn.click(); });
 
@@ -390,12 +445,14 @@
     folderModalMode = mode;
     renameTargetId = id;
     folderModalTitle.textContent = mode === "rename-file" ? "Rename file" : "Rename folder";
+    folderModalHint.classList.add("hidden");
     folderNameInput.value = currentName;
     folderModal.classList.remove("hidden");
     setTimeout(() => folderNameInput.focus(), 50);
   }
 
   // ---------- Folder options ----------
+  folderInfoAction.addEventListener("click", () => { closeSheet(folderOptionsSheet); showInfo("folder", currentFolderId()); });
   renameFolderAction.addEventListener("click", () => {
     closeSheet(folderOptionsSheet);
     const f = Store.getFolder(currentFolderId());
@@ -414,6 +471,7 @@
     }
     render();
   });
+  downloadFolderAction.addEventListener("click", () => { closeSheet(folderOptionsSheet); downloadFolderZip(currentFolderId()); });
   moveFolderAction.addEventListener("click", () => { closeSheet(folderOptionsSheet); openPicker("move", [currentFolderId()], []); });
   copyFolderAction.addEventListener("click", () => { closeSheet(folderOptionsSheet); openPicker("copy", [currentFolderId()], []); });
   deleteFolderAction.addEventListener("click", () => {
@@ -460,7 +518,7 @@
     }
   });
 
-  // ---------- PIN modal (promise-based) ----------
+  // ---------- PIN modal ----------
   let pinResolve = null;
   function requestPin(mode, title) {
     return new Promise((resolve) => {
@@ -499,7 +557,7 @@
     }
   });
 
-  // ---------- App lock screen (on boot) ----------
+  // ---------- App lock screen ----------
   async function checkAppLock() {
     if (!Store.isLockEnabled() && !Store.hasFakePin()) return;
     lockScreen.classList.remove("hidden");
@@ -507,16 +565,10 @@
       lockScreenSubmit.onclick = async () => {
         const entered = lockScreenInput.value.trim();
         if (Store.isLockEnabled() && (await Store.verifyPin(entered))) {
-          Store.setMode("real");
-          lockScreen.classList.add("hidden");
-          resolve();
-          return;
+          Store.setMode("real"); lockScreen.classList.add("hidden"); resolve(); return;
         }
         if (Store.hasFakePin() && (await Store.verifyFakePin(entered))) {
-          Store.setMode("decoy");
-          lockScreen.classList.add("hidden");
-          resolve();
-          return;
+          Store.setMode("decoy"); lockScreen.classList.add("hidden"); resolve(); return;
         }
         lockScreenError.classList.remove("hidden");
       };
@@ -537,7 +589,6 @@
     Store.saveSettings({ cloudName: cloudNameInput.value.trim(), uploadPreset: uploadPresetInput.value.trim() });
     settingsModal.classList.add("hidden");
   });
-
   selfDestructBtn.addEventListener("click", () => {
     if (confirm("This permanently erases every folder and file record from this app. Files remain safe on Cloudinary. Continue?")) {
       Store.selfDestruct();
@@ -546,7 +597,6 @@
       render();
     }
   });
-
   exportBackupBtn.addEventListener("click", () => {
     const blob = new Blob([Store.exportBackup()], { type: "application/json" });
     const a = document.createElement("a");
@@ -598,18 +648,108 @@
     fileInput.value = "";
   });
 
+  // ---------- Info modal ----------
+  function showInfo(type, id) {
+    let rows = [];
+    if (type === "folder") {
+      const f = Store.getFolder(id);
+      if (!f) return;
+      const counts = Store.countItems(id);
+      const path = Store.getFolderPath(id);
+      infoTitle.textContent = f.name;
+      rows = [
+        ["Location", path.slice(0, -1).length ? "My Files / " + path.slice(0, -1).join(" / ") : "My Files"],
+        ["Created", formatDateTime(f.createdAt)],
+        ["Contains", `${counts.total} item${counts.total === 1 ? "" : "s"}`],
+        ["Locked", f.locked ? "Yes" : "No"],
+      ];
+    } else {
+      const f = Store.getFile(id);
+      if (!f) return;
+      const path = Store.getFolderPath(f.folderId);
+      infoTitle.textContent = f.originalName;
+      rows = [
+        ["Location", path.length ? "My Files / " + path.join(" / ") : "My Files"],
+        ["Created", formatDateTime(f.createdAt)],
+        ["Size", formatBytes(f.bytes)],
+        ["Type", (f.format || getExt(f.originalName) || "file").toUpperCase()],
+      ];
+    }
+    infoRows.innerHTML = rows.map(([label, value]) => `<div class="info-row"><span class="label">${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span></div>`).join("");
+    infoModal.classList.remove("hidden");
+  }
+  infoCloseBtn.addEventListener("click", () => infoModal.classList.add("hidden"));
+
+  // ---------- Downloads ----------
+  async function downloadFileBlob(file) {
+    try {
+      const res = await fetch(file.url);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = file.originalName;
+      a.click();
+    } catch (e) {
+      alert("Couldn't download that file.");
+    }
+  }
+
+  function collectFilesRecursive(folderId, prefix, out) {
+    Store.getFiles(folderId).forEach((f) => out.push({ path: prefix + f.originalName, file: f }));
+    Store.getSubfolders(folderId).forEach((sub) => collectFilesRecursive(sub.id, prefix + sub.name + "/", out));
+  }
+
+  async function zipAndDownload(entries, zipName) {
+    if (!entries.length) { alert("Nothing to download."); return; }
+    uploadProgress.classList.remove("hidden");
+    const zip = new JSZip();
+    for (let i = 0; i < entries.length; i++) {
+      uploadLabel.textContent = `Preparing ${i + 1} of ${entries.length}`;
+      uploadFill.style.width = Math.round(((i + 1) / entries.length) * 100) + "%";
+      try {
+        const res = await fetch(entries[i].file.url);
+        const blob = await res.blob();
+        zip.file(entries[i].path, blob);
+      } catch (e) {}
+    }
+    const content = await zip.generateAsync({ type: "blob" });
+    uploadProgress.classList.add("hidden");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(content);
+    a.download = zipName;
+    a.click();
+  }
+
+  function downloadFolderZip(folderId) {
+    const folder = Store.getFolder(folderId);
+    const entries = [];
+    collectFilesRecursive(folderId, "", entries);
+    zipAndDownload(entries, `${folder ? folder.name : "folder"}.zip`);
+  }
+
+  function downloadSelection(folderIds, fileIds) {
+    if (folderIds.length === 0 && fileIds.length === 1) {
+      downloadFileBlob(Store.getFile(fileIds[0]));
+      return;
+    }
+    const entries = [];
+    fileIds.forEach((id) => { const f = Store.getFile(id); if (f) entries.push({ path: f.originalName, file: f }); });
+    folderIds.forEach((id) => { const f = Store.getFolder(id); collectFilesRecursive(id, (f ? f.name : "folder") + "/", entries); });
+    zipAndDownload(entries, "my-files-export.zip");
+  }
+
   // ---------- Selection actions ----------
+  selectionInfoBtn.addEventListener("click", () => {
+    if (selectedFolders.size === 1 && selectedFiles.size === 0) showInfo("folder", [...selectedFolders][0]);
+    else if (selectedFiles.size === 1 && selectedFolders.size === 0) showInfo("file", [...selectedFiles][0]);
+  });
   selectionRenameBtn.addEventListener("click", () => {
     if (selectedFolders.size === 1 && selectedFiles.size === 0) {
-      const id = [...selectedFolders][0];
-      const f = Store.getFolder(id);
-      exitSelection();
-      openRenameModal("rename-folder", id, f.name);
+      const id = [...selectedFolders][0]; const f = Store.getFolder(id);
+      exitSelection(); openRenameModal("rename-folder", id, f.name);
     } else if (selectedFiles.size === 1 && selectedFolders.size === 0) {
-      const id = [...selectedFiles][0];
-      const f = Store.getFile(id);
-      exitSelection();
-      openRenameModal("rename-file", id, f.originalName);
+      const id = [...selectedFiles][0]; const f = Store.getFile(id);
+      exitSelection(); openRenameModal("rename-file", id, f.originalName);
     }
   });
   selectionLockBtn.addEventListener("click", async () => {
@@ -625,6 +765,7 @@
     }
     exitSelection();
   });
+  selectionDownloadBtn.addEventListener("click", () => downloadSelection([...selectedFolders], [...selectedFiles]));
   selectionCopyBtn.addEventListener("click", () => openPicker("copy", [...selectedFolders], [...selectedFiles]));
   selectionMoveBtn.addEventListener("click", () => openPicker("move", [...selectedFolders], [...selectedFiles]));
   selectionDeleteBtn.addEventListener("click", () => {
@@ -640,12 +781,8 @@
   let pickerSourceFolders = [];
   let pickerSourceFiles = [];
   let pickerNav = [];
-
   function openPicker(mode, folderIds, fileIds) {
-    pickerMode = mode;
-    pickerSourceFolders = folderIds;
-    pickerSourceFiles = fileIds;
-    pickerNav = [];
+    pickerMode = mode; pickerSourceFolders = folderIds; pickerSourceFiles = fileIds; pickerNav = [];
     pickerTitle.textContent = mode === "move" ? "Move to…" : "Copy to…";
     pickerConfirmBtn.textContent = mode === "move" ? "Move here" : "Copy here";
     renderPicker();
@@ -657,7 +794,6 @@
     const folder = curId === Store.ROOT ? null : Store.getFolder(curId);
     pickerPath.textContent = folder ? folder.name : "My Files";
     let subfolders = Store.getSubfolders(curId);
-    // hide folders being moved themselves (avoid nonsense) — copy can go anywhere
     if (pickerMode === "move") subfolders = subfolders.filter((f) => !pickerSourceFolders.includes(f.id));
     pickerList.innerHTML = "";
     if (pickerNav.length) {
@@ -674,9 +810,7 @@
       row.addEventListener("click", () => { pickerNav.push(f.id); renderPicker(); });
       pickerList.appendChild(row);
     });
-    if (!subfolders.length && !pickerNav.length) {
-      pickerList.innerHTML += `<div class="picker-item" style="color:var(--text-dim)">No subfolders here</div>`;
-    }
+    if (!subfolders.length && !pickerNav.length) pickerList.innerHTML += `<div class="picker-item" style="color:var(--text-dim)">No subfolders here</div>`;
   }
   pickerCancelBtn.addEventListener("click", () => pickerModal.classList.add("hidden"));
   pickerConfirmBtn.addEventListener("click", () => {
@@ -687,10 +821,11 @@
     exitSelection();
   });
 
-  // ---------- Full-screen swipeable preview with zoom ----------
+  // ---------- Full-screen swipeable preview ----------
   function openPreview(files, index) {
     previewFiles = files;
     previewIndex = index;
+    resetEditingState();
     previewTrack.innerHTML = "";
     files.forEach((file) => {
       const slide = document.createElement("div");
@@ -703,8 +838,7 @@
       } else if (isCodeFile(file)) {
         slide.innerHTML = `<pre class="code-pre">Loading…</pre>`;
         const pre = slide.querySelector("pre");
-        fetch(file.url)
-          .then((r) => { if (!r.ok) throw new Error("fetch failed"); return r.text(); })
+        fetch(file.url).then((r) => { if (!r.ok) throw new Error(); return r.text(); })
           .then((text) => { pre.textContent = text; })
           .catch(() => { pre.textContent = "Couldn't load this file's contents."; });
       } else {
@@ -720,15 +854,11 @@
   }
 
   function attachZoom(img) {
-    let scale = 1, panX = 0, panY = 0;
-    let lastTap = 0;
+    let scale = 1, panX = 0, panY = 0, lastTap = 0;
     const pointers = new Map();
-    let pinchStartDist = 0, pinchStartScale = 1;
-    let dragStart = null;
-
+    let pinchStartDist = 0, pinchStartScale = 1, dragStart = null;
     function apply() { img.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`; }
     function reset() { scale = 1; panX = 0; panY = 0; apply(); }
-
     img.addEventListener("pointerdown", (e) => {
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 2) {
@@ -748,9 +878,7 @@
         scale = Math.min(4, Math.max(1, pinchStartScale * (dist / pinchStartDist)));
         apply();
       } else if (pointers.size === 1 && dragStart) {
-        panX = e.clientX - dragStart.x;
-        panY = e.clientY - dragStart.y;
-        apply();
+        panX = e.clientX - dragStart.x; panY = e.clientY - dragStart.y; apply();
       }
     });
     function endPointer(e) {
@@ -761,16 +889,11 @@
     }
     img.addEventListener("pointerup", endPointer);
     img.addEventListener("pointercancel", endPointer);
-
-    img.addEventListener("pointerup", (e) => {
+    img.addEventListener("pointerup", () => {
       const now = Date.now();
-      if (now - lastTap < 300) {
-        if (scale > 1) reset();
-        else { scale = 2.5; apply(); }
-      }
+      if (now - lastTap < 300) { if (scale > 1) reset(); else { scale = 2.5; apply(); } }
       lastTap = now;
     });
-
     img._resetZoom = reset;
   }
 
@@ -780,12 +903,32 @@
     previewIndex = Math.max(0, Math.min(idx, previewFiles.length - 1));
     previewCounter.textContent = `${previewIndex + 1} / ${previewFiles.length}`;
     previewTrack.querySelectorAll("img").forEach((img) => { if (img._resetZoom) img._resetZoom(); });
+    const file = previewFiles[previewIndex];
+    previewRunBtn.classList.toggle("hidden", !(file && isCodeFile(file)));
   }
   let scrollTimer = null;
-  previewTrack.addEventListener("scroll", () => { clearTimeout(scrollTimer); scrollTimer = setTimeout(updatePreviewCounter, 80); });
+  previewTrack.addEventListener("scroll", () => {
+    if (editingFile) return; // scrolling disabled while editing anyway
+    clearTimeout(scrollTimer); scrollTimer = setTimeout(updatePreviewCounter, 80);
+  });
 
-  previewCloseBtn.addEventListener("click", () => { previewOverlay.classList.add("hidden"); previewTrack.innerHTML = ""; });
-  previewMoreBtn.addEventListener("click", () => openSheet(previewOptionsSheet));
+  previewCloseBtn.addEventListener("click", async () => {
+    if (editingFile && hasUnsavedEdits) await saveCurrentEdits();
+    resetEditingState();
+    previewOverlay.classList.add("hidden");
+    previewTrack.innerHTML = "";
+  });
+  previewMoreBtn.addEventListener("click", () => {
+    const file = previewFiles[previewIndex];
+    const code = file && isCodeFile(file);
+    previewEditAction.classList.toggle("hidden", !code || !!editingFile);
+    previewSaveAction.classList.toggle("hidden", !code || !editingFile);
+    previewUndoAction.classList.toggle("hidden", !code || !editingFile);
+    previewRedoAction.classList.toggle("hidden", !code || !editingFile);
+    openSheet(previewOptionsSheet);
+  });
+  previewInfoAction.addEventListener("click", () => { closeSheet(previewOptionsSheet); showInfo("file", previewFiles[previewIndex].id); });
+  previewDownloadAction.addEventListener("click", () => { closeSheet(previewOptionsSheet); downloadFileBlob(previewFiles[previewIndex]); });
   previewRenameAction.addEventListener("click", () => {
     closeSheet(previewOptionsSheet);
     const file = previewFiles[previewIndex];
@@ -804,6 +947,110 @@
       renderContent();
     }
   });
+
+  // ---------- Code editing (edit / save / undo / redo) ----------
+  function resetEditingState() {
+    editingFile = null; editingTextarea = null; undoStack = []; redoStack = []; hasUnsavedEdits = false;
+    previewTrack.style.overflowX = "";
+  }
+
+  function startEditingCurrentSlide() {
+    const file = previewFiles[previewIndex];
+    if (!file || !isCodeFile(file)) return;
+    const slide = previewTrack.children[previewIndex];
+    const pre = slide.querySelector("pre");
+    if (!pre || pre.textContent === "Loading…") { alert("Still loading — try again in a moment."); return; }
+    const value = pre.textContent;
+    const textarea = document.createElement("textarea");
+    textarea.className = "code-edit";
+    textarea.value = value;
+    slide.innerHTML = "";
+    slide.appendChild(textarea);
+    textarea.focus();
+    editingFile = file;
+    editingTextarea = textarea;
+    undoStack = [value];
+    redoStack = [];
+    hasUnsavedEdits = false;
+    previewTrack.style.overflowX = "hidden";
+    lastUndoPushTime = Date.now();
+    textarea.addEventListener("input", () => {
+      hasUnsavedEdits = true;
+      const now = Date.now();
+      if (now - lastUndoPushTime > 700) {
+        undoStack.push(textarea.value);
+        redoStack = [];
+        lastUndoPushTime = now;
+      }
+    });
+  }
+  previewEditAction.addEventListener("click", () => { closeSheet(previewOptionsSheet); startEditingCurrentSlide(); });
+
+  async function saveCurrentEdits() {
+    if (!editingFile || !editingTextarea) return;
+    const settings = Store.getSettings();
+    const newContent = editingTextarea.value;
+    try {
+      const meta = await Cloudinary.upload(new File([newContent], editingFile.originalName, { type: "text/plain" }), settings, () => {});
+      Store.updateFile(editingFile.id, { url: meta.url, publicId: meta.publicId, bytes: meta.bytes, format: meta.format });
+      editingFile.url = meta.url;
+      editingFile.bytes = meta.bytes;
+      hasUnsavedEdits = false;
+    } catch (e) {
+      alert("Couldn't save your edits: " + e.message);
+    }
+  }
+  previewSaveAction.addEventListener("click", async () => { closeSheet(previewOptionsSheet); await saveCurrentEdits(); });
+  previewUndoAction.addEventListener("click", () => {
+    closeSheet(previewOptionsSheet);
+    if (!editingTextarea || undoStack.length < 2) return;
+    redoStack.push(undoStack.pop());
+    editingTextarea.value = undoStack[undoStack.length - 1];
+    hasUnsavedEdits = true;
+  });
+  previewRedoAction.addEventListener("click", () => {
+    closeSheet(previewOptionsSheet);
+    if (!editingTextarea || !redoStack.length) return;
+    const v = redoStack.pop();
+    undoStack.push(v);
+    editingTextarea.value = v;
+    hasUnsavedEdits = true;
+  });
+
+  // ---------- Run ----------
+  function getCurrentSlideContent() {
+    const slide = previewTrack.children[previewIndex];
+    if (!slide) return "";
+    const ta = slide.querySelector("textarea");
+    if (ta) return ta.value;
+    const pre = slide.querySelector("pre");
+    return pre ? pre.textContent : "";
+  }
+  previewRunBtn.addEventListener("click", () => {
+    const file = previewFiles[previewIndex];
+    if (!file) return;
+    const ext = getExt(file.originalName);
+    const content = getCurrentSlideContent();
+    let html;
+    if (ext === "html" || ext === "htm") {
+      html = content;
+    } else if (ext === "css") {
+      html = `<html><body style="margin:0;font-family:sans-serif"><style>${content}</style><div style="padding:24px">CSS applied to this page — style real elements to preview them.</div></body></html>`;
+    } else if (ext === "js" || ext === "mjs") {
+      html = `<html><body style="margin:0;padding:14px;font-family:monospace;white-space:pre-wrap;color:#111"><div id="out"></div>
+        <script>
+          const out=document.getElementById('out');
+          const origLog=console.log;
+          console.log=(...a)=>{ out.textContent += a.join(' ') + "\\n"; origLog(...a); };
+          try { ${content} } catch(e) { out.textContent += "Error: " + e.message; }
+        <\/script></body></html>`;
+    } else {
+      html = `<html><body style="margin:0;padding:20px;font-family:monospace;white-space:pre-wrap;color:#111">Live run isn't supported for .${ext} files yet — showing raw content:\n\n${content.replace(/</g, "&lt;")}</body></html>`;
+    }
+    runFrame.srcdoc = html;
+    runOverlay.classList.remove("hidden");
+  });
+  runCloseBtn.addEventListener("click", () => { runOverlay.classList.add("hidden"); runFrame.srcdoc = ""; });
 
   // ---------- Boot ----------
   (async () => {

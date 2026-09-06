@@ -65,6 +65,12 @@ const Store = (() => {
     },
     getFolder(id) { return data.folders.find((f) => f.id === id) || null; },
     getAllFolders() { return [...data.folders]; },
+    getFolderPath(id) {
+      const path = [];
+      let f = this.getFolder(id);
+      while (f) { path.unshift(f.name); f = f.parentId === ROOT ? null : this.getFolder(f.parentId); }
+      return path;
+    },
 
     createFolder(name, parentId) {
       const folder = { id: _uid(), name: name.trim(), parentId, createdAt: Date.now(), locked: false };
@@ -115,6 +121,10 @@ const Store = (() => {
     renameFile(id, newName) {
       const f = this.getFile(id);
       if (f) { f.originalName = newName.trim(); saveData(); }
+    },
+    updateFile(id, patch) {
+      const f = this.getFile(id);
+      if (f) { Object.assign(f, patch); saveData(); }
     },
     removeFile(id) {
       data.files = data.files.filter((f) => f.id !== id);

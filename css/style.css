@@ -44,6 +44,8 @@ input, textarea {
   padding: 16px 8px 12px; width: 100%; overflow: hidden;
 }
 .topbar.selection-bar { background: var(--surface); border-radius: 0 0 16px 16px; }
+.selection-actions { display: flex; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
+.selection-actions::-webkit-scrollbar { display: none; }
 
 .icon-btn {
   background: none; border: none; color: var(--text-dim);
@@ -210,8 +212,14 @@ main#content { flex: 1; padding: 4px 0 110px; }
 /* ---------- Lock screen ---------- */
 .lockscreen { position: fixed; inset: 0; background: var(--bg); z-index: 60; display: flex; align-items: center; justify-content: center; }
 .lockscreen-card { text-align: center; padding: 30px; width: 100%; max-width: 320px; }
-.lockscreen-card h3 { margin: 0 0 20px; }
-.lockscreen-card input { width: 100%; text-align: center; letter-spacing: 4px; margin-bottom: 14px; }
+.lockscreen-card h3 { margin: 0 0 24px; font-size: 19px; }
+.lockscreen-card input[type="password"] {
+  width: 100%; text-align: center; letter-spacing: 6px; font-size: 18px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 14px; color: var(--text); outline: none; margin-bottom: 16px; box-sizing: border-box;
+}
+.lockscreen-card input[type="password"]:focus { border-color: var(--accent); }
+.lockscreen-card .btn { width: 100%; }
 
 /* ---------- Move/copy picker ---------- */
 .picker-card { max-height: 74vh; display: flex; flex-direction: column; }
@@ -241,3 +249,17 @@ main#content { flex: 1; padding: 4px 0 110px; }
   font-size: 12.5px; line-height: 1.5; white-space: pre;
   -webkit-user-select: text; user-select: text;
 }
+.code-edit {
+  width: 100%; height: 100%; margin: 0; box-sizing: border-box;
+  padding: 60px 16px 24px; overflow: auto; resize: none; border: none; outline: none;
+  color: #e6e2ee; background: #000;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px; line-height: 1.5; white-space: pre;
+  -webkit-user-select: text; user-select: text;
+}
+
+.info-rows { margin: 4px 0 8px; }
+.info-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.info-row:last-child { border-bottom: none; }
+.info-row .label { color: var(--text-dim); flex-shrink: 0; }
+.info-row .value { text-align: right; word-break: break-word; }
