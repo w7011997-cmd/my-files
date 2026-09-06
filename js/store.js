@@ -1,11 +1,14 @@
 // store.js — local on-device "database" (localStorage). No server.
 // Cloudinary holds actual files; this remembers structure, layout prefs,
-// and lock/security state.
+// and lock/security state. Supports two independent datasets ("real" and
+// "decoy") so a fake lock PIN can open a completely separate, empty space.
 
 const Store = (() => {
-  const DATA_KEY = "myfiles_data_v2";
+  const DATA_KEY_REAL = "myfiles_data_v2";
+  const DATA_KEY_DECOY = "myfiles_data_decoy_v1";
+  const LAYOUT_KEY_REAL = "myfiles_layouts_v1";
+  const LAYOUT_KEY_DECOY = "myfiles_layouts_decoy_v1";
   const SETTINGS_KEY = "myfiles_settings_v1";
-  const LAYOUT_KEY = "myfiles_layouts_v1";
   const SECURITY_KEY = "myfiles_security_v1";
 
   function _load(key, fallback) {
@@ -18,9 +21,15 @@ const Store = (() => {
   function _save(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
   function _uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
-  let data = _load(DATA_KEY, { folders: [], files: [] });
-  let layouts = _load(LAYOUT_KEY, {});
-  let security = _load(SECURITY_KEY, { pinHash: null, lockEnabled: false });
+  let mode = "real"; // "real" | "decoy" — which dataset is currently active
+  let data = _load(DATA_KEY_REAL, { folders: [], files: [] });
+  let layouts = _load(LAYOUT_KEY_REAL, {});
+  let security = _load(SECURITY_KEY, { pinHash: null, lockEnabled: false, fakePinHash: null });
+
+  function dataKey() { return mode === "decoy" ? DATA_KEY_DECOY : DATA_KEY_REAL; }
+  function layoutKey() { return mode === "decoy" ? LAYOUT_KEY_DECOY : LAYOUT_KEY_REAL; }
+  function saveData() { _save(dataKey(), data); }
+  function saveLayouts() { _save(layoutKey(), layouts); }
 
   const ROOT = null;
 
@@ -42,6 +51,14 @@ const Store = (() => {
   return {
     ROOT,
 
+    // ---- Mode (real vs decoy dataset) ----
+    getMode() { return mode; },
+    setMode(newMode) {
+      mode = newMode === "decoy" ? "decoy" : "real";
+      data = _load(dataKey(), { folders: [], files: [] });
+      layouts = _load(layoutKey(), {});
+    },
+
     // ---- Folders ----
     getSubfolders(parentId) {
       return data.folders.filter((f) => f.parentId === parentId).sort((a, b) => a.name.localeCompare(b.name));
@@ -52,25 +69,19 @@ const Store = (() => {
     createFolder(name, parentId) {
       const folder = { id: _uid(), name: name.trim(), parentId, createdAt: Date.now(), locked: false };
       data.folders.push(folder);
-      _save(DATA_KEY, data);
+      saveData();
       return folder;
     },
     renameFolder(id, newName) {
       const f = this.getFolder(id);
-      if (f) { f.name = newName.trim(); _save(DATA_KEY, data); }
+      if (f) { f.name = newName.trim(); saveData(); }
     },
     setFolderLocked(id, locked) {
       const f = this.getFolder(id);
-      if (f) { f.locked = locked; _save(DATA_KEY, data); }
+      if (f) { f.locked = locked; saveData(); }
     },
-    lockAllFolders() {
-      data.folders.forEach((f) => (f.locked = true));
-      _save(DATA_KEY, data);
-    },
-    unlockAllFolders() {
-      data.folders.forEach((f) => (f.locked = false));
-      _save(DATA_KEY, data);
-    },
+    lockAllFolders() { data.folders.forEach((f) => (f.locked = true)); saveData(); },
+    unlockAllFolders() { data.folders.forEach((f) => (f.locked = false)); saveData(); },
     deleteFolder(id) {
       const toDelete = new Set([id]);
       let changed = true;
@@ -82,7 +93,7 @@ const Store = (() => {
       }
       data.folders = data.folders.filter((f) => !toDelete.has(f.id));
       data.files = data.files.filter((f) => !toDelete.has(f.folderId));
-      _save(DATA_KEY, data);
+      saveData();
     },
 
     // ---- Files ----
@@ -98,23 +109,23 @@ const Store = (() => {
     addFile(folderId, meta) {
       const file = { id: _uid(), folderId, createdAt: Date.now(), ...meta };
       data.files.push(file);
-      _save(DATA_KEY, data);
+      saveData();
       return file;
     },
     renameFile(id, newName) {
       const f = this.getFile(id);
-      if (f) { f.originalName = newName.trim(); _save(DATA_KEY, data); }
+      if (f) { f.originalName = newName.trim(); saveData(); }
     },
     removeFile(id) {
       data.files = data.files.filter((f) => f.id !== id);
-      _save(DATA_KEY, data);
+      saveData();
     },
 
     // ---- Move / Copy ----
     isDescendant,
     moveItems(folderIds, fileIds, destId) {
       folderIds.forEach((fid) => {
-        if (fid === destId || isDescendant(destId, fid)) return; // illegal, skip
+        if (fid === destId || isDescendant(destId, fid)) return;
         const f = this.getFolder(fid);
         if (f) f.parentId = destId;
       });
@@ -122,7 +133,7 @@ const Store = (() => {
         const f = this.getFile(fid);
         if (f) f.folderId = destId;
       });
-      _save(DATA_KEY, data);
+      saveData();
     },
     copyItems(folderIds, fileIds, destId) {
       const cloneFolder = (folderId, newParentId) => {
@@ -140,23 +151,24 @@ const Store = (() => {
         const src = this.getFile(fid);
         if (src) data.files.push({ ...src, id: _uid(), folderId: destId, createdAt: Date.now() });
       });
-      _save(DATA_KEY, data);
+      saveData();
     },
 
     // ---- Layout preference ----
     getLayout(folderId) { return layouts[folderId === ROOT ? "root" : folderId] || "grid"; },
     setLayout(folderId, layout) {
       layouts[folderId === ROOT ? "root" : folderId] = layout;
-      _save(LAYOUT_KEY, layouts);
+      saveLayouts();
     },
 
-    // ---- Cloudinary settings ----
+    // ---- Cloudinary settings (shared across modes) ----
     getSettings() { return _load(SETTINGS_KEY, { cloudName: "", uploadPreset: "" }); },
     saveSettings(s) { _save(SETTINGS_KEY, s); },
 
     // ---- Security / lock ----
     isLockEnabled() { return !!security.lockEnabled && !!security.pinHash; },
     hasPin() { return !!security.pinHash; },
+    hasFakePin() { return !!security.fakePinHash; },
     async setPin(pin) {
       security.pinHash = await sha256(pin);
       security.lockEnabled = true;
@@ -164,16 +176,27 @@ const Store = (() => {
     },
     async verifyPin(pin) {
       if (!security.pinHash) return false;
-      const hash = await sha256(pin);
-      return hash === security.pinHash;
+      return (await sha256(pin)) === security.pinHash;
     },
     disableLock() {
       security.lockEnabled = false;
       security.pinHash = null;
       _save(SECURITY_KEY, security);
     },
+    async setFakePin(pin) {
+      security.fakePinHash = await sha256(pin);
+      _save(SECURITY_KEY, security);
+    },
+    async verifyFakePin(pin) {
+      if (!security.fakePinHash) return false;
+      return (await sha256(pin)) === security.fakePinHash;
+    },
+    removeFakePin() {
+      security.fakePinHash = null;
+      _save(SECURITY_KEY, security);
+    },
 
-    // ---- Stats / backup / self-destruct ----
+    // ---- Stats / backup / self-destruct (operate on active mode's dataset) ----
     getStats() {
       let totalBytes = 0;
       data.files.forEach((f) => (totalBytes += f.bytes || 0));
@@ -184,13 +207,13 @@ const Store = (() => {
       const parsed = JSON.parse(jsonString);
       if (!parsed.folders || !parsed.files) throw new Error("Invalid backup file");
       data = { folders: parsed.folders, files: parsed.files };
-      _save(DATA_KEY, data);
+      saveData();
     },
     selfDestruct() {
       data = { folders: [], files: [] };
       layouts = {};
-      _save(DATA_KEY, data);
-      _save(LAYOUT_KEY, layouts);
+      saveData();
+      saveLayouts();
     },
   };
 })();

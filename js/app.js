@@ -48,6 +48,7 @@
   const toggleAppLockAction = el("toggleAppLockAction");
   const lockAllFoldersAction = el("lockAllFoldersAction");
   const unlockAllFoldersAction = el("unlockAllFoldersAction");
+  const toggleFakeLockAction = el("toggleFakeLockAction");
 
   const folderModal = el("folderModal");
   const folderModalTitle = el("folderModalTitle");
@@ -111,6 +112,9 @@
   function escapeHtml(str) { const d = document.createElement("div"); d.textContent = str || ""; return d.innerHTML; }
   function isImage(m) { return m && m.startsWith("image/"); }
   function isVideo(m) { return m && m.startsWith("video/"); }
+  const CODE_EXTS = new Set(["html","htm","css","js","mjs","jsx","tsx","ts","json","php","xml","md","txt","yml","yaml","py","java","c","cpp","h","hpp","sh","sql","rb","go","rs","ini","conf","log","csv","svg"]);
+  function getExt(name) { const parts = (name || "").split("."); return parts.length > 1 ? parts.pop().toLowerCase() : ""; }
+  function isCodeFile(file) { return CODE_EXTS.has(getExt(file.originalName)); }
   function formatBytes(bytes) {
     if (!bytes) return "0 B";
     const units = ["B", "KB", "MB", "GB"];
@@ -226,6 +230,7 @@
   });
   hamburgerBtn.addEventListener("click", () => {
     toggleAppLockAction.textContent = Store.isLockEnabled() ? "Disable lock" : "Set lock";
+    toggleFakeLockAction.textContent = Store.hasFakePin() ? "Remove fake lock" : "Set fake lock";
     openSheet(hamburgerSheet);
   });
   settingsBtn.addEventListener("click", openSettingsModal);
@@ -444,6 +449,16 @@
     const ok = await requestPin("verify", "Confirm PIN to unlock all folders");
     if (ok) { Store.unlockAllFolders(); render(); }
   });
+  toggleFakeLockAction.addEventListener("click", async () => {
+    closeSheet(hamburgerSheet);
+    if (Store.hasFakePin()) {
+      const ok = await requestPin("verify", "Confirm your real PIN to remove the fake lock");
+      if (ok) { Store.removeFakePin(); alert("Fake lock removed."); }
+    } else {
+      if (!Store.hasPin()) { alert("Set your real lock PIN first, then add a fake one."); return; }
+      await requestPin("set-fake", "Set a fake PIN (must differ from your real PIN)");
+    }
+  });
 
   // ---------- PIN modal (promise-based) ----------
   let pinResolve = null;
@@ -453,7 +468,7 @@
       pinModalTitle.textContent = title;
       pinInput.value = ""; pinConfirmInput.value = "";
       pinError.classList.add("hidden");
-      pinConfirmInput.classList.toggle("hidden", mode !== "set");
+      pinConfirmInput.classList.toggle("hidden", mode !== "set" && mode !== "set-fake");
       pinModal.dataset.mode = mode;
       pinModal.classList.remove("hidden");
       setTimeout(() => pinInput.focus(), 50);
@@ -464,9 +479,16 @@
     const mode = pinModal.dataset.mode;
     const pin = pinInput.value.trim();
     if (!pin) return;
-    if (mode === "set") {
+    if (mode === "set" || mode === "set-fake") {
       if (pin !== pinConfirmInput.value.trim()) { pinError.textContent = "PINs didn't match. Try again."; pinError.classList.remove("hidden"); return; }
-      await Store.setPin(pin);
+      if (mode === "set-fake") {
+        const matchesReal = await Store.verifyPin(pin);
+        if (matchesReal) { pinError.textContent = "Fake PIN can't be the same as your real PIN."; pinError.classList.remove("hidden"); return; }
+        await Store.setFakePin(pin);
+        alert("Fake lock set. Entering that PIN on the lock screen opens an empty space instead.");
+      } else {
+        await Store.setPin(pin);
+      }
       pinModal.classList.add("hidden");
       if (pinResolve) pinResolve(true);
     } else {
@@ -479,13 +501,24 @@
 
   // ---------- App lock screen (on boot) ----------
   async function checkAppLock() {
-    if (!Store.isLockEnabled()) return;
+    if (!Store.isLockEnabled() && !Store.hasFakePin()) return;
     lockScreen.classList.remove("hidden");
     return new Promise((resolve) => {
       lockScreenSubmit.onclick = async () => {
-        const ok = await Store.verifyPin(lockScreenInput.value.trim());
-        if (ok) { lockScreen.classList.add("hidden"); resolve(); }
-        else { lockScreenError.classList.remove("hidden"); }
+        const entered = lockScreenInput.value.trim();
+        if (Store.isLockEnabled() && (await Store.verifyPin(entered))) {
+          Store.setMode("real");
+          lockScreen.classList.add("hidden");
+          resolve();
+          return;
+        }
+        if (Store.hasFakePin() && (await Store.verifyFakePin(entered))) {
+          Store.setMode("decoy");
+          lockScreen.classList.add("hidden");
+          resolve();
+          return;
+        }
+        lockScreenError.classList.remove("hidden");
       };
     });
   }
@@ -667,6 +700,13 @@
         attachZoom(slide.querySelector("img"));
       } else if (isVideo(file.mimeType)) {
         slide.innerHTML = `<video src="${file.url}" controls playsinline></video>`;
+      } else if (isCodeFile(file)) {
+        slide.innerHTML = `<pre class="code-pre">Loading…</pre>`;
+        const pre = slide.querySelector("pre");
+        fetch(file.url)
+          .then((r) => { if (!r.ok) throw new Error("fetch failed"); return r.text(); })
+          .then((text) => { pre.textContent = text; })
+          .catch(() => { pre.textContent = "Couldn't load this file's contents."; });
       } else {
         slide.innerHTML = `<div class="file-generic-full">${genericFileSVG()}<span>${escapeHtml(file.originalName)}</span></div>`;
       }
