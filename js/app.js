@@ -222,7 +222,7 @@
     const isDecoy = Store.getMode() === "decoy";
     hamburgerBtn.classList.toggle("hidden", navPath.length !== 0 || isDecoy);
     folderMenuBtn.classList.toggle("hidden", folderId === Store.ROOT);
-    settingsBtn.classList.toggle("hidden", folderId !== Store.ROOT);
+    settingsBtn.classList.toggle("hidden", folderId !== Store.ROOT || isDecoy);
 
     if (searchActive) {
       folderTitle.classList.add("hidden");
