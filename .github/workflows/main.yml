@@ -52,6 +52,11 @@ jobs:
           npm install @capacitor/assets --save-dev
           npx capacitor-assets generate --android
 
+      - name: Verify launcher icons were actually generated
+        run: |
+          echo "Generated mipmap files:"
+          find android/app/src/main/res -iname "ic_launcher*" | sort
+
       - name: Patch Gradle to fix Kotlin duplicate classes
         run: |
           cat >> android/app/build.gradle << 'PATCH'
